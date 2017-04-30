@@ -15,6 +15,8 @@ library(rgdal)
 library(tmap)
 library(raster)
 library(rgeos)
+library(ggthemes)
+library(RColorBrewer)
 names(macleish_layers)
 
 summary(macleish_layers)
@@ -68,15 +70,23 @@ trail_lengths
 
 # elevation 
 mac_elevation <- gIntersection(macleish_layers[["boundary"]], elevation2)
+
+mac_elevation <- spTransform(mac_elevation, CRS("+init=epsg:4326"))
+macleish_layers[["trails"]] <- spTransform(macleish_layers[["trails"]],CRS("+init=epsg:4326"))
+macleish_layers[["boundary"]] <- spTransform(macleish_layers[["boundary"]],CRS("+init=epsg:4326"))
+
 ```
 
+```{r}
+leaflet() %>%
+  addTiles() %>%
+  addPolylines(data = mac_elevation, weight =1) %>%
+  addPolylines(data=macleish_layers[["trails"]], weight = 1, color=~trail_pal)
+
+trail_pal <- colorFactor("Set1", macleish_layers[["trails"]]@data$name)
 
 
-
-
-
-
-
+```
 
 
 
