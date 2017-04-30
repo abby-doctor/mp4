@@ -1,0 +1,83 @@
+---
+title: "Abby’s code"
+output: html_document
+---
+
+
+# import data
+```{r, warning=FALSE, error=FALSE, echo=FALSE, message=FALSE}
+library(tidyverse) 
+library(macleish)
+library(sp)
+library(leaflet)
+library(rgdal)
+# install.packages("tmap")
+library(tmap)
+library(raster)
+names(macleish_layers)
+
+summary(macleish_layers)
+```
+
+
+
+"landmarks"         "forests"          
+"streams"           "challenge_courses"
+"buildings"         "wetlands"         
+"boundary"          "research"         
+"soil"              "trails"    
+
+
+
+
+```{r}
+url <- "http://wsgw.mass.gov/data/gispub/shape/state/contours250k.zip"
+download.file(url, destfile = basename(url))
+unzip("contours250k.zip",exdir="contour")
+
+elevation1 <- path.expand("contour")
+list.files(elevation1)
+
+ogrListLayers(elevation1)
+ogrInfo(elevation1, layer = "CONTOURS250K_ARC")
+
+elevation2 <- readOGR(elevation1, "CONTOURS250K_ARC")
+
+str(elevation2, max.level=2)
+plot(elevation2)
+```
+# verify the same proj4string
+```{r}
+proj4string(macleish_layers[["trails"]])
+proj4string(elevation2)
+
+# transform trail to have elevation's proj4string
+macleish_layers[["trails"]] <- spTransform(macleish_layers[["trails"]], proj4string(elevation2))
+
+# transform boundary to have elevation's proj4string
+macleish_layers[["boundary"]] <- spTransform(macleish_layers[["boundary"]], proj4string(elevation2))
+
+summary(elevation2)
+```
+
+
+```{r}
+SpatialLinesLengths(macleish_layers[["trails"]], longlat = TRUE)
+
+library(rgeos)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
