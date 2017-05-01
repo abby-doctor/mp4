@@ -1,0 +1,111 @@
+---
+title: "Final code"
+output: html_document
+---
+
+
+#### Load packages, import data
+```{r, warning=FALSE, error=FALSE, echo=FALSE, message=FALSE}
+library(tidyverse) 
+library(sp)
+library(leaflet)
+library(ggthemes)
+library(rgdal)
+library(RColorBrewer)
+
+# import macleish data
+library(macleish)
+
+# import elevation data
+url <- "http://wsgw.mass.gov/data/gispub/shape/state/contours250k.zip"
+download.file(url, destfile = basename(url))
+unzip("contours250k.zip",exdir="contour")
+elevation1 <- path.expand("contour")
+elevation2 <- readOGR(elevation1, "CONTOURS250K_ARC")
+```
+
+### 2 -- Standardize projections 
+```{r, error=FALSE, message=FALSE, warning=FALSE}
+proj4_aea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+
+# transform all data to have aea's proj4string
+elevation2 <- spTransform(elevation2, proj4_aea)
+macleish_layers[["boundary"]] <- spTransform(macleish_layers[["boundary"]], proj4_aea)
+macleish_layers[["trails"]] <- spTransform(macleish_layers[["trails"]], proj4_aea)
+```
+
+
+### 2 -- Find the intersection of the Macleish fields and the elevation data
+```{r}
+# intersection
+mac_elevation <- gIntersection(macleish_layers[["boundary"]], elevation2)
+
+# add initial location 
+mac_elevation <- spTransform(mac_elevation, CRS("+init=epsg:4326"))
+macleish_layers[["trails"]] <- spTransform(macleish_layers[["trails"]],CRS("+init=epsg:4326"))
+macleish_layers[["boundary"]] <- spTransform(macleish_layers[["boundary"]],CRS("+init=epsg:4326"))
+```
+
+### 3 -- Create metric for difficulty
+
+#### 3.1 Length of Trails
+```{r}
+# length of trails (km)
+trail_lengths <- SpatialLinesLengths(macleish_layers[["trails"]], longlat = TRUE)
+
+trails <- data.frame(trail_lengths)
+trails <- cbind(trails, "miles", macleish_layers[["trails"]]@data$name)
+
+trails<- trails %>%
+  rename(miles = `"miles"`,
+         name = `macleish_layers[["trails"]]@data$name`) %>%
+  mutate(miles = 0.621371*trail_lengths)%>%
+  group_by(name) %>%
+  summarise(length_mi = sum(miles, na.rm=TRUE))
+
+trails
+```
+
+
+#### 3.2 Elevation Change 
+
+Porcupine: 50 ft 
+Western_Loop: 160 ft
+Eastern_Loop:  280 ft
+Vernal_Pool_Loop:	 50 ft
+
+```{r}
+macleish_layers[["trails"]]@data <- macleish_layers[["trails"]]@data %>%
+  mutate(score = ifelse(name=='Porcupine Trail', 5,
+                  ifelse(name=='Western Loop', 9,
+                  ifelse(name=='Eastern Loop', 11,
+                  ifelse(name=='Vernal Pool Loop', 10, 0)))),
+         Color = ifelse(name=='Porcupine Trail', 'white',
+                  ifelse(name=='Western Loop', 'red',
+                  ifelse(name=='Eastern Loop', 'blue',
+                  ifelse(name=='Vernal Pool Loop', 'yellow', 0))))) %>%
+  filter(score > 0) %>%
+  mutate(difficulty = ifelse(score <= 7, "easy", "moderate"))
+```
+
+### 4 -- Create leaflet() map
+
+```{r}
+leaflet() %>%
+  addTiles() %>%
+  addPolylines(data = mac_elevation, weight =1, color="white", dashArray="white") %>%
+  addPolylines(data=macleish_layers[["trails"]], weight = 2, fillOpacity =1, color=~Color, popup=~name) %>%
+  addProviderTiles("Esri.WorldImagery", group = "Satellite")
+
+leaflet(macleish_layers[["trails"]]) %>%
+   addLegend(pal=~color, values = ~name)
+
+```
+
+
+
+
+
+
+
+

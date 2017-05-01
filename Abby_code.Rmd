@@ -23,16 +23,6 @@ summary(macleish_layers)
 ```
 
 
-
-"landmarks"         "forests"          
-"streams"           "challenge_courses"
-"buildings"         "wetlands"         
-"boundary"          "research"         
-"soil"              "trails"    
-
-
-
-
 ```{r}
 url <- "http://wsgw.mass.gov/data/gispub/shape/state/contours250k.zip"
 download.file(url, destfile = basename(url))
@@ -64,10 +54,6 @@ macleish_layers[["trails"]] <- spTransform(macleish_layers[["trails"]], proj4_ae
 
 
 ```{r}
-# length of trails
-trail_lengths <- SpatialLinesLengths(macleish_layers[["trails"]], longlat = TRUE)
-trail_lengths
-
 # elevation 
 mac_elevation <- gIntersection(macleish_layers[["boundary"]], elevation2)
 
@@ -75,15 +61,44 @@ mac_elevation <- spTransform(mac_elevation, CRS("+init=epsg:4326"))
 macleish_layers[["trails"]] <- spTransform(macleish_layers[["trails"]],CRS("+init=epsg:4326"))
 macleish_layers[["boundary"]] <- spTransform(macleish_layers[["boundary"]],CRS("+init=epsg:4326"))
 
+
+# length of trails
+trail_lengths <- SpatialLinesLengths(macleish_layers[["trails"]], longlat = TRUE)
+trail_lengths
 ```
+
+```{r}
+trails <- data.frame(trail_lengths)
+
+trails <- cbind(trails, "conversion")
+
+trails %>%
+  rename(km = `0`,
+         conversion = `"conversion"`) %>%
+  mutate(km = 0.621371, 
+         conversion = km*trail_lengths) 
+
+```
+
+
 
 ```{r}
 leaflet() %>%
   addTiles() %>%
-  addPolylines(data = mac_elevation, weight =1) %>%
-  addPolylines(data=macleish_layers[["trails"]], weight = 1, color=~trail_pal)
+  addPolylines(data = mac_elevation, weight =3, color="white", dashArray="white") %>%
+  addPolylines(data=macleish_layers[["trails"]], weight = 5, color=~color, popup=~name) %>%
+  addProviderTiles("Esri.WorldImagery", group = "Satellite")
 
-trail_pal <- colorFactor("Set1", macleish_layers[["trails"]]@data$name)
+leaflet(macleish_layers[["trails"]]) %>%
+   addLegend(pal=~color, values = ~name)
+
+
+trails_elevation <- gIntersection(macleish_layers[["trails"]], mac_elevation)
+
+str(macleish_layers[["trails"]]@data, max.level = 2)
+addPolylin
+
+str(macleish_layers[["trails"]])
 
 
 ```
